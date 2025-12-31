@@ -1,0 +1,28 @@
+# --- Python & Runtime ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Virtual Environment ---
+venv/
+env/
+.env
+
+# --- Heavy Model Files (CRITICAL) ---
+models/
+*.nano
+*.bin
+
+# --- Numba & Cache ---
+.numba_cache/
+
+# --- IDE & OS Junk ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Benchmarks ---
+benchmarks/*.png
+benchmarks/*.svg
