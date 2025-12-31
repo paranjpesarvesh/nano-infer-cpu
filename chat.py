@@ -62,8 +62,8 @@ def main():
                 break
 
             # Prepare Prompt (TinyLlama Chat Format)
-            prompt = f"<|system|>\nYou are a helpful assistant.\n</s>\n<|user|>\n{user_input}\n</s>\n<|assistant|>\n"
-            tokens = tokenizer.encode(prompt)
+            prompt = f"<s><|system|>\nYou are a helpful assistant.\n</s>\n<|user|>\n{user_input}\n</s>\n<|assistant|>\n"
+            tokens = tokenizer.encode(prompt, add_special_tokens=False)
 
             # Start Generation UI
             with Live(tui.render_layout(), refresh_per_second=10) as live:
@@ -85,8 +85,14 @@ def main():
                 next_token = sample(logits)
 
                 while next_token != tokenizer.eos_token_id and len(new_tokens) < 512:
-                    # 1. Print Token
-                    word = tokenizer.decode([next_token])
+                    # 1. Print Token (Differential Decoding)
+                    # We decode the full history to preserve context-dependent spacing
+                    full_text = tokenizer.decode(new_tokens + [next_token])
+                    current_text = tokenizer.decode(new_tokens)
+
+                    # The "new" word is just the difference between the two strings
+                    word = full_text[len(current_text):]
+
                     tui.stream_token(word)
                     new_tokens.append(next_token)
 

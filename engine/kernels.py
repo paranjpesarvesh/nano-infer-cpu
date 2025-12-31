@@ -98,15 +98,52 @@ def matmul_int8(x, w_int8, scales, out):
         out[col] = acc
 
 @njit(fastmath=True)
-def apply_rope(q, k, pos_freqs):
+def apply_rope(q, k, cos, sin):
     """
-    Rotary Positional Embeddings (RoPE).
-    This rotates the Query and Key vectors based on their position in the sentence.
+    Applies Rotary Positional Embeddings (RoPE) in-place.
+    Args:
+        q: Query vector [Heads, Head_Dim]
+        k: Key vector [KV_Heads, Head_Dim]
+        cos: Cosine slice for this position [Head_Dim // 2]
+        sin: Sine slice for this position [Head_Dim // 2]
     """
-    # Simple implementation: we assume q and k are complex numbers for rotation
-    # In real Llama, this involves pairing indices (0,1), (2,3)...
+    # RoPE works on pairs. We iterate over half the head dimension.
+    n_heads, head_dim = q.shape
+    n_kv_heads, _ = k.shape
+    half_dim = head_dim // 2
 
-    # NOTE: This is a stub for clarity. Implementing full RoPE requires
-    # matching the exact "cos/sin" table logic of the model.
-    # For phase 1, we will return them as-is to get the pipeline running.
+    # Rotate Q
+    for h in range(n_heads):
+        for i in range(half_dim):
+            # Llama implementation pairs indices i and i + half_dim
+            real_idx = i
+            imag_idx = i + half_dim
+
+            q_r = q[h, real_idx]
+            q_i = q[h, imag_idx]
+
+            # The Rotation
+            # new_real = real * cos - imag * sin
+            # new_imag = real * sin + imag * cos
+            c = cos[i]
+            s = sin[i]
+
+            q[h, real_idx] = q_r * c - q_i * s
+            q[h, imag_idx] = q_r * s + q_i * c
+
+    # Rotate K
+    for h in range(n_kv_heads):
+        for i in range(half_dim):
+            real_idx = i
+            imag_idx = i + half_dim
+
+            k_r = k[h, real_idx]
+            k_i = k[h, imag_idx]
+
+            c = cos[i]
+            s = sin[i]
+
+            k[h, real_idx] = k_r * c - k_i * s
+            k[h, imag_idx] = k_r * s + k_i * c
+
     return q, k

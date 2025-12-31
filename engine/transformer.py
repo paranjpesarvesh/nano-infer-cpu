@@ -7,6 +7,8 @@ class Transformer:
         self.w = weights
         self.c = weights.config
 
+        self._precompute_freqs_cis(self.c["dim"])
+
         # Initialize Memory (KV Cache)
         self.kv = KVCache(self.c)
 
@@ -14,6 +16,23 @@ class Transformer:
         self.w_embed = self.w.weights[0]
         self.w_final_norm = self.w.weights[-2]
         self.w_head = self.w.weights[-1]
+
+    def _precompute_freqs_cis(self, dim, max_pos=4096, theta=10000.0):
+        # Head Dim
+        head_dim = dim // self.c["n_heads"]
+
+        # Calculate frequencies (1 / theta^(2i/dim))
+        # Note: We process in pairs, so we need head_dim / 2 frequencies
+        freqs = 1.0 / (theta ** (np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32) / head_dim))
+
+        t = np.arange(max_pos, dtype=np.float32)
+
+        # Outer product to get (max_pos, head_dim/2)
+        freqs_outer = np.outer(t, freqs)
+
+        # We need these to be float32 for the Numba kernel
+        self.cos_table = np.cos(freqs_outer).astype(np.float32)
+        self.sin_table = np.sin(freqs_outer).astype(np.float32)
 
     def forward(self, token_id, pos):
         """
@@ -56,7 +75,9 @@ class Transformer:
             k = k.reshape(self.c["n_kv_heads"], head_dim)
             v = v.reshape(self.c["n_kv_heads"], head_dim)
 
-            q, k = apply_rope(q, k, pos)
+            cos_pos = self.cos_table[pos]
+            sin_pos = self.sin_table[pos]
+            q, k = apply_rope(q, k, cos_pos, sin_pos)
             self.kv.update(i, k, v, pos)
 
             # D. Attention
