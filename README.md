@@ -21,7 +21,7 @@ The project is decoupled into an **Offline Compiler** (Packer) and an **Online R
 graph LR
     A[HuggingFace Model] -->|packer/| B(Binary Converter);
     B -->|Quantize Int8| C[model.nano];
-    C -->|mmap (Zero Copy)| D[engine/];
+    C -->|mmap Zero Copy| D[engine/];
     D -->|Token Stream| E[interface/];
 
     subgraph "Phase 1: Packer"
